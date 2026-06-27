@@ -1,1 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admissions Simulator</title>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --ink: #1E1E2D;
+    --muted: #57576A;
+    --soft: #F6F6F8;
+    --line: #E5E5EC;
+    --accent: #FF4A00;
+    --accent-soft: #FFF1EA;
+    --link: #1A56DB;
+    --code-bg: #F4F4F7;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 18px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 96px; }
+
+  /* simulator-specific */
+  .sim-card { background: var(--soft); border: 1px solid var(--line);
+    border-radius: 12px; padding: 28px; margin: 24px 0 32px; }
+  .sim-controls { display: grid; grid-template-columns: 1fr 1fr;
+    gap: 20px 24px; margin-bottom: 24px; }
+  .sim-control { display: flex; flex-direction: column; gap: 6px; }
+  .sim-control label { font-size: 13px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em; }
+  .sim-control .row { display: flex; align-items: center; gap: 12px; }
+  .sim-control input[type=range] { flex: 1; accent-color: var(--accent); }
+  .sim-control .val { font-variant-numeric: tabular-nums; font-weight: 700;
+    min-width: 56px; text-align: right; color: var(--ink); font-size: 16px; }
+  .sim-toggle { display: inline-flex; background: white;
+    border: 1px solid var(--line); border-radius: 8px; padding: 4px;
+    gap: 4px; }
+  .sim-toggle button { background: transparent; border: none; padding: 8px 14px;
+    border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 600;
+    color: var(--muted); transition: background 0.15s, color 0.15s; }
+  .sim-toggle button.on { background: var(--accent); color: white; }
+  .sim-results { display: flex; flex-direction: column; gap: 10px; }
+  .sim-row { display: grid; grid-template-columns: 130px 1fr 56px;
+    align-items: center; gap: 12px; font-size: 14.5px; }
+  .sim-school { font-weight: 600; color: var(--ink); }
+  .sim-bar-wrap { background: white; height: 18px; border-radius: 4px;
+    border: 1px solid var(--line); overflow: hidden; position: relative; }
+  .sim-bar { height: 100%; background: linear-gradient(90deg, #FF7A1F, #FF4A00);
+    border-radius: 3px 0 0 3px; transition: width 0.25s ease; }
+  .sim-bar.low { background: linear-gradient(90deg, #BCC2CC, #93A1B2); }
+  .sim-pct { font-variant-numeric: tabular-nums; font-weight: 700;
+    color: var(--ink); text-align: right; font-size: 14px; }
+  .sim-note { font-size: 13.5px; color: var(--muted); margin-top: 18px;
+    line-height: 1.55; padding-top: 16px; border-top: 1px solid var(--line); }
+
+  .sim-scatter-section { margin-top: 28px; padding-top: 24px;
+    border-top: 1px solid var(--line); }
+  .sim-scatter-header { display: flex; justify-content: space-between;
+    align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .sim-scatter-title { font-weight: 700; color: var(--ink); font-size: 16px; }
+  .sim-school-select { background: white; border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 12px; font-size: 14px; font-weight: 600;
+    color: var(--ink); cursor: pointer; font-family: inherit;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2357576A' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 32px; }
+  .sim-scatter-wrap { background: white; border: 1px solid var(--line);
+    border-radius: 8px; padding: 16px; }
+  .sim-scatter-wrap svg { width: 100%; height: auto; display: block; }
+  .sim-legend { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+    margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .sim-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .sim-legend-swatch { width: 14px; height: 14px; display: inline-block; }
+  .sim-legend-swatch.dot { border-radius: 50%; background: #1976D2; }
+  .sim-legend-swatch.xmark { color: #E53935; font-weight: 700;
+    font-size: 16px; line-height: 14px; text-align: center; }
+  .sim-legend-swatch.boundary { width: 22px; height: 2px;
+    background: repeating-linear-gradient(90deg, #1E1E2D 0 4px, transparent 4px 8px);
+    margin-bottom: 2px; }
+  .sim-legend-swatch.user { width: 16px; height: 16px;
+    background: #FFB300; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+  .sim-scatter-stat { font-size: 13.5px; color: var(--muted); text-align: center;
+    margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .sim-scatter-stat strong { color: var(--accent); font-size: 17px; }
+
+  @media (max-width: 600px) {
+    .sim-controls { grid-template-columns: 1fr; }
+    .sim-row { grid-template-columns: 100px 1fr 50px; gap: 8px; font-size: 13px; }
+  }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 32px; } h2 { font-size: 24px; } h3 { font-size: 19px; }
+    .lede { font-size: 18px; } body { font-size: 17px; }
+    .wrap { padding: 32px 18px 64px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="sim-card">
+    <div class="sim-controls">
+      <div class="sim-control">
+        <label for="sim-gpa">Weighted GPA</label>
+        <div class="row">
+          <input type="range" id="sim-gpa" min="2.0" max="5.0" step="0.01" value="4.0">
+          <span class="val" id="sim-gpa-val">4.00</span>
+        </div>
+      </div>
+      <div class="sim-control">
+        <label>Test type</label>
+        <div class="sim-toggle" id="sim-test-toggle">
+          <button data-test="SAT" class="on">SAT</button>
+          <button data-test="ACT">ACT</button>
+          <button data-test="NONE">No test</button>
+        </div>
+      </div>
+      <div class="sim-control" id="sim-score-control">
+        <label for="sim-score"><span id="sim-score-label">SAT score</span></label>
+        <div class="row">
+          <input type="range" id="sim-score" min="800" max="1600" step="10" value="1350">
+          <span class="val" id="sim-score-val">1350</span>
+        </div>
+      </div>
+      <div class="sim-control">
+        <label>Decision type</label>
+        <div class="sim-toggle" id="sim-decision-toggle">
+          <button data-decision="early" class="on">Early</button>
+          <button data-decision="regular">Regular</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sim-results" id="sim-results"></div>
+
+    <p class="sim-note">All probabilities are computed from logistic regression coefficients fit on the same dataset described in this post. "No test" uses the school&rsquo;s mean score for that feature, which is a rough way of saying "I&rsquo;m not submitting; judge me on GPA." The model still has the same limitations described above.</p>
+
+    <div class="sim-scatter-section">
+      <div class="sim-scatter-header">
+        <div class="sim-scatter-title">Where you land at:</div>
+        <select id="sim-school-select" class="sim-school-select">
+          <option value="JMU">JMU</option>
+          <option value="Georgetown">Georgetown</option>
+          <option value="William &amp; Mary">William &amp; Mary</option>
+          <option value="UVA" selected>UVA</option>
+          <option value="Virginia Tech">Virginia Tech</option>
+          <option value="U Miami">U Miami</option>
+          <option value="Penn State">Penn State</option>
+          <option value="Northeastern">Northeastern</option>
+        </select>
+      </div>
+      <div class="sim-scatter-wrap">
+        <svg id="sim-scatter-svg" viewBox="0 0 600 380" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="sim-legend">
+          <span class="sim-legend-item"><span class="sim-legend-swatch dot"></span> Accepted</span>
+          <span class="sim-legend-item"><span class="sim-legend-swatch xmark">&times;</span> Not accepted</span>
+          <span class="sim-legend-item"><span class="sim-legend-swatch boundary"></span> 50% decision boundary</span>
+          <span class="sim-legend-item"><span class="sim-legend-swatch user"></span> You</span>
+        </div>
+        <div class="sim-scatter-stat" id="sim-scatter-stat"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+    const MODELS = {"UVA": {"mean_gpa": 4.17172131147541, "std_gpa": 0.33736367647030213, "mean_score": 1401.2295081967213, "std_score": 133.94749319246336, "mean_early": 0.7377049180327869, "std_early": 0.4398822250819258, "intercept": -0.9882710140502636, "coef_gpa": 2.7888228966042927, "coef_score": 0.9904474967305745, "coef_early": 0.1975852773690251, "n": 122, "accept_rate": 0.45081967213114754, "points": [{"gpa": 4.72, "score": 1570.0, "early": 1, "accepted": 1}, {"gpa": 4.71, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.67, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 4.66, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.62, "score": 1530.0, "early": 1, "accepted": 1}, {"gpa": 4.6, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 4.59, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.59, "score": 1490.0, "early": 1, "accepted": 1}, {"gpa": 4.54, "score": 1550.0, "early": 1, "accepted": 1}, {"gpa": 4.54, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.53, "score": 1530.0, "early": 1, "accepted": 1}, {"gpa": 4.51, "score": 1490.0, "early": 1, "accepted": 1}, {"gpa": 4.5, "score": 1580.0, "early": 1, "accepted": 1}, {"gpa": 4.49, "score": 1530.0, "early": 1, "accepted": 1}, {"gpa": 4.48, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 4.48, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 4.47, "score": 1490.0, "early": 1, "accepted": 1}, {"gpa": 4.46, "score": 1550.0, "early": 1, "accepted": 1}, {"gpa": 4.45, "score": 1470.0, "early": 1, "accepted": 1}, {"gpa": 4.44, "score": 1530.0, "early": 1, "accepted": 1}, {"gpa": 4.43, "score": 1420.0, "early": 0, "accepted": 0}, {"gpa": 4.43, "score": 1340.0, "early": 1, "accepted": 1}, {"gpa": 4.43, "score": 1440.0, "early": 1, "accepted": 1}, {"gpa": 4.43, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 4.43, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.42, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.42, "score": 1520.0, "early": 0, "accepted": 1}, {"gpa": 4.41, "score": 1400.0, "early": 1, "accepted": 0}, {"gpa": 4.41, "score": 1200.0, "early": 1, "accepted": 0}, {"gpa": 4.41, "score": 1400.0, "early": 1, "accepted": 1}, {"gpa": 4.4, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 4.4, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 4.4, "score": 1500.0, "early": 0, "accepted": 1}, {"gpa": 4.4, "score": 1510.0, "early": 0, "accepted": 1}, {"gpa": 4.39, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 4.39, "score": 1440.0, "early": 1, "accepted": 1}, {"gpa": 4.38, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.37, "score": 1410.0, "early": 1, "accepted": 1}, {"gpa": 4.37, "score": 1500.0, "early": 0, "accepted": 1}, {"gpa": 4.36, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 4.35, "score": 1450.0, "early": 1, "accepted": 0}, {"gpa": 4.35, "score": 1520.0, "early": 0, "accepted": 1}, {"gpa": 4.35, "score": 1330.0, "early": 0, "accepted": 1}, {"gpa": 4.35, "score": 1360.0, "early": 1, "accepted": 1}, {"gpa": 4.34, "score": 1570.0, "early": 1, "accepted": 1}, {"gpa": 4.32, "score": 1440.0, "early": 1, "accepted": 0}, {"gpa": 4.31, "score": 1440.0, "early": 1, "accepted": 0}, {"gpa": 4.31, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.31, "score": 1560.0, "early": 1, "accepted": 1}, {"gpa": 4.3, "score": 1440.0, "early": 1, "accepted": 0}, {"gpa": 4.29, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 4.29, "score": 1410.0, "early": 1, "accepted": 1}, {"gpa": 4.27, "score": 1510.0, "early": 0, "accepted": 0}, {"gpa": 4.26, "score": 1510.0, "early": 1, "accepted": 0}, {"gpa": 4.26, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.26, "score": 1430.0, "early": 1, "accepted": 1}, {"gpa": 4.26, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.25, "score": 1370.0, "early": 1, "accepted": 0}, {"gpa": 4.25, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.25, "score": 1350.0, "early": 1, "accepted": 1}, {"gpa": 4.24, "score": 1460.0, "early": 1, "accepted": 0}, {"gpa": 4.24, "score": 1420.0, "early": 1, "accepted": 0}, {"gpa": 4.23, "score": 1400.0, "early": 1, "accepted": 0}, {"gpa": 4.22, "score": 1390.0, "early": 1, "accepted": 0}, {"gpa": 4.22, "score": 1220.0, "early": 1, "accepted": 0}, {"gpa": 4.21, "score": 1290.0, "early": 1, "accepted": 1}, {"gpa": 4.19, "score": 1310.0, "early": 0, "accepted": 0}, {"gpa": 4.18, "score": 1460.0, "early": 1, "accepted": 0}, {"gpa": 4.17, "score": 1450.0, "early": 0, "accepted": 0}, {"gpa": 4.17, "score": 1510.0, "early": 0, "accepted": 1}, {"gpa": 4.17, "score": 1380.0, "early": 1, "accepted": 0}, {"gpa": 4.17, "score": 1450.0, "early": 1, "accepted": 0}, {"gpa": 4.15, "score": 1460.0, "early": 0, "accepted": 0}, {"gpa": 4.15, "score": 1240.0, "early": 1, "accepted": 0}, {"gpa": 4.15, "score": 1600.0, "early": 1, "accepted": 1}, {"gpa": 4.13, "score": 1490.0, "early": 1, "accepted": 1}, {"gpa": 4.12, "score": 1560.0, "early": 1, "accepted": 0}, {"gpa": 4.12, "score": 1290.0, "early": 1, "accepted": 0}, {"gpa": 4.12, "score": 1390.0, "early": 0, "accepted": 0}, {"gpa": 4.12, "score": 1410.0, "early": 1, "accepted": 0}, {"gpa": 4.11, "score": 1470.0, "early": 1, "accepted": 0}, {"gpa": 4.11, "score": 1370.0, "early": 1, "accepted": 0}, {"gpa": 4.1, "score": 1340.0, "early": 0, "accepted": 0}, {"gpa": 4.09, "score": 1250.0, "early": 1, "accepted": 0}, {"gpa": 4.07, "score": 1320.0, "early": 1, "accepted": 1}, {"gpa": 4.06, "score": 1500.0, "early": 1, "accepted": 0}, {"gpa": 4.06, "score": 1150.0, "early": 0, "accepted": 0}, {"gpa": 4.05, "score": 1410.0, "early": 1, "accepted": 0}, {"gpa": 4.04, "score": 1250.0, "early": 0, "accepted": 0}, {"gpa": 4.02, "score": 1270.0, "early": 1, "accepted": 0}, {"gpa": 4.01, "score": 1430.0, "early": 1, "accepted": 0}, {"gpa": 4.0, "score": 1480.0, "early": 1, "accepted": 0}, {"gpa": 4.0, "score": 1370.0, "early": 1, "accepted": 0}, {"gpa": 3.99, "score": 1440.0, "early": 0, "accepted": 0}, {"gpa": 3.99, "score": 1480.0, "early": 1, "accepted": 0}, {"gpa": 3.99, "score": 1310.0, "early": 1, "accepted": 0}, {"gpa": 3.96, "score": 1360.0, "early": 1, "accepted": 0}, {"gpa": 3.94, "score": 1590.0, "early": 1, "accepted": 0}, {"gpa": 3.94, "score": 1370.0, "early": 0, "accepted": 0}, {"gpa": 3.94, "score": 1280.0, "early": 0, "accepted": 0}, {"gpa": 3.94, "score": 1120.0, "early": 0, "accepted": 0}, {"gpa": 3.9, "score": 1370.0, "early": 1, "accepted": 0}, {"gpa": 3.89, "score": 1390.0, "early": 0, "accepted": 0}, {"gpa": 3.87, "score": 1370.0, "early": 0, "accepted": 0}, {"gpa": 3.87, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.86, "score": 1160.0, "early": 0, "accepted": 0}, {"gpa": 3.82, "score": 1250.0, "early": 1, "accepted": 0}, {"gpa": 3.8, "score": 1250.0, "early": 1, "accepted": 0}, {"gpa": 3.8, "score": 1320.0, "early": 1, "accepted": 0}, {"gpa": 3.77, "score": 1130.0, "early": 0, "accepted": 0}, {"gpa": 3.72, "score": 1450.0, "early": 1, "accepted": 0}, {"gpa": 3.7, "score": 1330.0, "early": 0, "accepted": 0}, {"gpa": 3.68, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.67, "score": 1240.0, "early": 1, "accepted": 0}, {"gpa": 3.65, "score": 1220.0, "early": 0, "accepted": 0}, {"gpa": 3.65, "score": 1250.0, "early": 0, "accepted": 0}, {"gpa": 3.62, "score": 1430.0, "early": 0, "accepted": 0}, {"gpa": 3.57, "score": 1030.0, "early": 0, "accepted": 0}, {"gpa": 3.4, "score": 1230.0, "early": 0, "accepted": 0}, {"gpa": 3.35, "score": 1280.0, "early": 1, "accepted": 0}, {"gpa": 2.99, "score": 910.0, "early": 0, "accepted": 0}, {"gpa": 2.43, "score": 840.0, "early": 0, "accepted": 0}]}, "Virginia Tech": {"mean_gpa": 3.91991452991453, "std_gpa": 0.4198911045776172, "mean_score": 1332.3931623931624, "std_score": 158.71088358594614, "mean_early": 0.9487179487179487, "std_early": 0.22057244274468274, "intercept": 0.20232051713448562, "coef_gpa": 1.623591237601975, "coef_score": 0.1977864989878059, "coef_early": 0.3345614602235846, "n": 117, "accept_rate": 0.5470085470085471, "points": [{"gpa": 4.72, "score": 1570.0, "early": 1, "accepted": 1}, {"gpa": 4.66, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.59, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.59, "score": 1490.0, "early": 1, "accepted": 1}, {"gpa": 4.54, "score": 1550.0, "early": 1, "accepted": 1}, {"gpa": 4.53, "score": 1530.0, "early": 1, "accepted": 1}, {"gpa": 4.5, "score": 1580.0, "early": 1, "accepted": 1}, {"gpa": 4.48, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 4.46, "score": 1550.0, "early": 1, "accepted": 1}, {"gpa": 4.45, "score": 1470.0, "early": 1, "accepted": 1}, {"gpa": 4.41, "score": 1400.0, "early": 1, "accepted": 1}, {"gpa": 4.4, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 4.39, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 4.39, "score": 1440.0, "early": 1, "accepted": 1}, {"gpa": 4.38, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.38, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.36, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 4.35, "score": 1450.0, "early": 1, "accepted": 1}, {"gpa": 4.35, "score": 1360.0, "early": 1, "accepted": 1}, {"gpa": 4.35, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.32, "score": 1440.0, "early": 1, "accepted": 1}, {"gpa": 4.31, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.31, "score": 1560.0, "early": 1, "accepted": 1}, {"gpa": 4.27, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.27, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.26, "score": 1430.0, "early": 1, "accepted": 0}, {"gpa": 4.26, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.26, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.26, "score": 1540.0, "early": 0, "accepted": 1}, {"gpa": 4.25, "score": 1370.0, "early": 1, "accepted": 1}, {"gpa": 4.24, "score": 1460.0, "early": 1, "accepted": 1}, {"gpa": 4.22, "score": 1360.0, "early": 0, "accepted": 0}, {"gpa": 4.22, "score": 1390.0, "early": 0, "accepted": 1}, {"gpa": 4.22, "score": 1530.0, "early": 1, "accepted": 1}, {"gpa": 4.19, "score": 1310.0, "early": 1, "accepted": 1}, {"gpa": 4.18, "score": 1460.0, "early": 1, "accepted": 1}, {"gpa": 4.17, "score": 1450.0, "early": 1, "accepted": 1}, {"gpa": 4.17, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 4.16, "score": 1320.0, "early": 1, "accepted": 1}, {"gpa": 4.13, "score": 1260.0, "early": 1, "accepted": 1}, {"gpa": 4.12, "score": 1410.0, "early": 1, "accepted": 0}, {"gpa": 4.12, "score": 1290.0, "early": 1, "accepted": 1}, {"gpa": 4.12, "score": 1560.0, "early": 1, "accepted": 1}, {"gpa": 4.11, "score": 1370.0, "early": 0, "accepted": 0}, {"gpa": 4.11, "score": 1470.0, "early": 1, "accepted": 1}, {"gpa": 4.08, "score": 1300.0, "early": 1, "accepted": 1}, {"gpa": 4.07, "score": 1210.0, "early": 1, "accepted": 1}, {"gpa": 4.07, "score": 1320.0, "early": 1, "accepted": 1}, {"gpa": 4.06, "score": 1150.0, "early": 1, "accepted": 1}, {"gpa": 4.04, "score": 1250.0, "early": 1, "accepted": 1}, {"gpa": 4.02, "score": 1270.0, "early": 1, "accepted": 0}, {"gpa": 4.01, "score": 1260.0, "early": 1, "accepted": 0}, {"gpa": 4.01, "score": 1430.0, "early": 1, "accepted": 0}, {"gpa": 4.0, "score": 1120.0, "early": 1, "accepted": 0}, {"gpa": 4.0, "score": 1180.0, "early": 1, "accepted": 0}, {"gpa": 4.0, "score": 1370.0, "early": 1, "accepted": 1}, {"gpa": 4.0, "score": 1480.0, "early": 1, "accepted": 1}, {"gpa": 4.0, "score": 1190.0, "early": 1, "accepted": 1}, {"gpa": 3.99, "score": 1440.0, "early": 1, "accepted": 0}, {"gpa": 3.96, "score": 1360.0, "early": 1, "accepted": 1}, {"gpa": 3.96, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 3.95, "score": 1350.0, "early": 1, "accepted": 1}, {"gpa": 3.94, "score": 1430.0, "early": 1, "accepted": 0}, {"gpa": 3.92, "score": 1080.0, "early": 1, "accepted": 0}, {"gpa": 3.91, "score": 1340.0, "early": 1, "accepted": 0}, {"gpa": 3.89, "score": 1390.0, "early": 1, "accepted": 0}, {"gpa": 3.88, "score": 1240.0, "early": 1, "accepted": 1}, {"gpa": 3.87, "score": 1370.0, "early": 1, "accepted": 0}, {"gpa": 3.86, "score": 1160.0, "early": 1, "accepted": 0}, {"gpa": 3.85, "score": 1430.0, "early": 1, "accepted": 0}, {"gpa": 3.85, "score": 1310.0, "early": 1, "accepted": 0}, {"gpa": 3.84, "score": 1240.0, "early": 1, "accepted": 1}, {"gpa": 3.83, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 3.82, "score": 1250.0, "early": 1, "accepted": 0}, {"gpa": 3.8, "score": 1250.0, "early": 1, "accepted": 1}, {"gpa": 3.79, "score": 1110.0, "early": 1, "accepted": 0}, {"gpa": 3.73, "score": 1280.0, "early": 1, "accepted": 0}, {"gpa": 3.72, "score": 1450.0, "early": 1, "accepted": 0}, {"gpa": 3.7, "score": 1330.0, "early": 1, "accepted": 0}, {"gpa": 3.7, "score": 1270.0, "early": 1, "accepted": 0}, {"gpa": 3.7, "score": 1270.0, "early": 1, "accepted": 1}, {"gpa": 3.68, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.68, "score": 1220.0, "early": 1, "accepted": 0}, {"gpa": 3.68, "score": 1320.0, "early": 1, "accepted": 1}, {"gpa": 3.67, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.67, "score": 1240.0, "early": 1, "accepted": 1}, {"gpa": 3.66, "score": 1250.0, "early": 1, "accepted": 0}, {"gpa": 3.65, "score": 1220.0, "early": 0, "accepted": 0}, {"gpa": 3.63, "score": 1310.0, "early": 1, "accepted": 0}, {"gpa": 3.62, "score": 1470.0, "early": 1, "accepted": 0}, {"gpa": 3.62, "score": 1430.0, "early": 1, "accepted": 0}, {"gpa": 3.61, "score": 1500.0, "early": 1, "accepted": 0}, {"gpa": 3.59, "score": 1080.0, "early": 1, "accepted": 0}, {"gpa": 3.59, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 3.58, "score": 1400.0, "early": 1, "accepted": 0}, {"gpa": 3.57, "score": 1030.0, "early": 1, "accepted": 0}, {"gpa": 3.57, "score": 1200.0, "early": 1, "accepted": 0}, {"gpa": 3.57, "score": 1150.0, "early": 1, "accepted": 0}, {"gpa": 3.52, "score": 1200.0, "early": 1, "accepted": 0}, {"gpa": 3.51, "score": 1220.0, "early": 1, "accepted": 0}, {"gpa": 3.48, "score": 1210.0, "early": 1, "accepted": 0}, {"gpa": 3.47, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.47, "score": 1150.0, "early": 1, "accepted": 1}, {"gpa": 3.47, "score": 1070.0, "early": 1, "accepted": 1}, {"gpa": 3.46, "score": 1280.0, "early": 1, "accepted": 0}, {"gpa": 3.43, "score": 1060.0, "early": 1, "accepted": 0}, {"gpa": 3.42, "score": 1340.0, "early": 1, "accepted": 0}, {"gpa": 3.4, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.35, "score": 1360.0, "early": 0, "accepted": 0}, {"gpa": 3.31, "score": 1220.0, "early": 1, "accepted": 1}, {"gpa": 3.12, "score": 1030.0, "early": 1, "accepted": 0}, {"gpa": 3.03, "score": 930.0, "early": 1, "accepted": 1}, {"gpa": 3.01, "score": 1240.0, "early": 1, "accepted": 0}, {"gpa": 2.99, "score": 910.0, "early": 1, "accepted": 0}, {"gpa": 2.97, "score": 940.0, "early": 1, "accepted": 0}, {"gpa": 2.8, "score": 1220.0, "early": 1, "accepted": 0}, {"gpa": 2.43, "score": 840.0, "early": 1, "accepted": 0}]}, "JMU": {"mean_gpa": 3.6818072289156625, "std_gpa": 0.46339799069381826, "mean_score": 1233.3734939759036, "std_score": 161.39659383719953, "mean_early": 0.8795180722891566, "std_early": 0.3255242430387059, "intercept": 3.184862686097153, "coef_gpa": 1.8272872245509157, "coef_score": 0.7170001473031611, "coef_early": 0.190525629192158, "n": 83, "accept_rate": 0.8674698795180723, "points": [{"gpa": 4.37, "score": 1470.0, "early": 1, "accepted": 1}, {"gpa": 4.29, "score": 1210.0, "early": 1, "accepted": 1}, {"gpa": 4.26, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.26, "score": 1430.0, "early": 1, "accepted": 1}, {"gpa": 4.21, "score": 1290.0, "early": 1, "accepted": 1}, {"gpa": 4.19, "score": 1310.0, "early": 1, "accepted": 1}, {"gpa": 4.17, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 4.16, "score": 1320.0, "early": 1, "accepted": 1}, {"gpa": 4.15, "score": 1460.0, "early": 1, "accepted": 1}, {"gpa": 4.12, "score": 1560.0, "early": 1, "accepted": 1}, {"gpa": 4.12, "score": 1290.0, "early": 1, "accepted": 1}, {"gpa": 4.11, "score": 1470.0, "early": 1, "accepted": 1}, {"gpa": 4.09, "score": 1430.0, "early": 1, "accepted": 1}, {"gpa": 4.09, "score": 1250.0, "early": 1, "accepted": 1}, {"gpa": 4.05, "score": 1410.0, "early": 1, "accepted": 1}, {"gpa": 4.04, "score": 1250.0, "early": 1, "accepted": 1}, {"gpa": 4.01, "score": 1430.0, "early": 1, "accepted": 1}, {"gpa": 4.01, "score": 1260.0, "early": 1, "accepted": 1}, {"gpa": 4.0, "score": 1120.0, "early": 1, "accepted": 1}, {"gpa": 4.0, "score": 1480.0, "early": 1, "accepted": 1}, {"gpa": 4.0, "score": 1370.0, "early": 1, "accepted": 1}, {"gpa": 4.0, "score": 1180.0, "early": 1, "accepted": 1}, {"gpa": 3.99, "score": 1180.0, "early": 1, "accepted": 1}, {"gpa": 3.96, "score": 1360.0, "early": 1, "accepted": 1}, {"gpa": 3.94, "score": 1220.0, "early": 1, "accepted": 1}, {"gpa": 3.94, "score": 1430.0, "early": 1, "accepted": 1}, {"gpa": 3.94, "score": 1120.0, "early": 1, "accepted": 1}, {"gpa": 3.92, "score": 1080.0, "early": 1, "accepted": 1}, {"gpa": 3.91, "score": 1340.0, "early": 1, "accepted": 1}, {"gpa": 3.89, "score": 1390.0, "early": 1, "accepted": 1}, {"gpa": 3.88, "score": 1180.0, "early": 1, "accepted": 1}, {"gpa": 3.87, "score": 1370.0, "early": 1, "accepted": 1}, {"gpa": 3.87, "score": 970.0, "early": 0, "accepted": 1}, {"gpa": 3.87, "score": 1140.0, "early": 1, "accepted": 1}, {"gpa": 3.86, "score": 1160.0, "early": 1, "accepted": 1}, {"gpa": 3.85, "score": 1310.0, "early": 1, "accepted": 1}, {"gpa": 3.84, "score": 1240.0, "early": 1, "accepted": 1}, {"gpa": 3.83, "score": 970.0, "early": 1, "accepted": 1}, {"gpa": 3.8, "score": 1280.0, "early": 1, "accepted": 1}, {"gpa": 3.79, "score": 1110.0, "early": 1, "accepted": 1}, {"gpa": 3.78, "score": 1140.0, "early": 0, "accepted": 1}, {"gpa": 3.75, "score": 1360.0, "early": 1, "accepted": 1}, {"gpa": 3.72, "score": 1450.0, "early": 1, "accepted": 1}, {"gpa": 3.71, "score": 1080.0, "early": 1, "accepted": 1}, {"gpa": 3.7, "score": 1330.0, "early": 1, "accepted": 1}, {"gpa": 3.7, "score": 1270.0, "early": 1, "accepted": 1}, {"gpa": 3.69, "score": 1180.0, "early": 1, "accepted": 0}, {"gpa": 3.68, "score": 1230.0, "early": 1, "accepted": 1}, {"gpa": 3.67, "score": 1230.0, "early": 1, "accepted": 1}, {"gpa": 3.67, "score": 1240.0, "early": 1, "accepted": 1}, {"gpa": 3.67, "score": 1340.0, "early": 1, "accepted": 1}, {"gpa": 3.66, "score": 1250.0, "early": 1, "accepted": 1}, {"gpa": 3.65, "score": 1250.0, "early": 1, "accepted": 1}, {"gpa": 3.65, "score": 1220.0, "early": 1, "accepted": 1}, {"gpa": 3.63, "score": 1310.0, "early": 1, "accepted": 1}, {"gpa": 3.62, "score": 1470.0, "early": 1, "accepted": 1}, {"gpa": 3.61, "score": 1130.0, "early": 1, "accepted": 1}, {"gpa": 3.61, "score": 1230.0, "early": 1, "accepted": 1}, {"gpa": 3.61, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 3.57, "score": 1030.0, "early": 0, "accepted": 1}, {"gpa": 3.57, "score": 1150.0, "early": 1, "accepted": 1}, {"gpa": 3.57, "score": 1200.0, "early": 1, "accepted": 1}, {"gpa": 3.56, "score": 1270.0, "early": 0, "accepted": 1}, {"gpa": 3.55, "score": 1200.0, "early": 1, "accepted": 1}, {"gpa": 3.47, "score": 1230.0, "early": 1, "accepted": 1}, {"gpa": 3.45, "score": 1010.0, "early": 1, "accepted": 1}, {"gpa": 3.42, "score": 1370.0, "early": 1, "accepted": 1}, {"gpa": 3.4, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.35, "score": 1360.0, "early": 0, "accepted": 1}, {"gpa": 3.33, "score": 1140.0, "early": 1, "accepted": 1}, {"gpa": 3.31, "score": 1220.0, "early": 1, "accepted": 1}, {"gpa": 3.3, "score": 1090.0, "early": 1, "accepted": 1}, {"gpa": 3.28, "score": 1030.0, "early": 1, "accepted": 1}, {"gpa": 3.21, "score": 920.0, "early": 1, "accepted": 0}, {"gpa": 3.12, "score": 1030.0, "early": 1, "accepted": 1}, {"gpa": 2.99, "score": 910.0, "early": 0, "accepted": 0}, {"gpa": 2.97, "score": 940.0, "early": 1, "accepted": 0}, {"gpa": 2.8, "score": 1210.0, "early": 0, "accepted": 0}, {"gpa": 2.8, "score": 1040.0, "early": 0, "accepted": 0}, {"gpa": 2.76, "score": 1070.0, "early": 1, "accepted": 0}, {"gpa": 2.43, "score": 840.0, "early": 1, "accepted": 0}, {"gpa": 2.24, "score": 1020.0, "early": 0, "accepted": 0}, {"gpa": 1.71, "score": 890.0, "early": 0, "accepted": 0}]}, "Penn State": {"mean_gpa": 3.8090625, "std_gpa": 0.39281324582268096, "mean_score": 1280.9375, "std_score": 148.89928170998678, "mean_early": 0.828125, "std_early": 0.37727176461405115, "intercept": 1.1115616585790666, "coef_gpa": 0.5158300750874167, "coef_score": 0.16348926468474007, "coef_early": -0.17892378638291068, "n": 64, "accept_rate": 0.734375, "points": [{"gpa": 4.46, "score": 1550.0, "early": 1, "accepted": 1}, {"gpa": 4.42, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.41, "score": 1400.0, "early": 1, "accepted": 1}, {"gpa": 4.35, "score": 1360.0, "early": 0, "accepted": 1}, {"gpa": 4.27, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.25, "score": 1370.0, "early": 0, "accepted": 1}, {"gpa": 4.24, "score": 1460.0, "early": 0, "accepted": 1}, {"gpa": 4.24, "score": 1390.0, "early": 1, "accepted": 1}, {"gpa": 4.22, "score": 1360.0, "early": 0, "accepted": 1}, {"gpa": 4.22, "score": 1390.0, "early": 0, "accepted": 1}, {"gpa": 4.22, "score": 1220.0, "early": 1, "accepted": 1}, {"gpa": 4.19, "score": 1310.0, "early": 1, "accepted": 0}, {"gpa": 4.17, "score": 1450.0, "early": 1, "accepted": 1}, {"gpa": 4.12, "score": 1390.0, "early": 1, "accepted": 1}, {"gpa": 4.12, "score": 1290.0, "early": 1, "accepted": 1}, {"gpa": 4.11, "score": 1400.0, "early": 1, "accepted": 1}, {"gpa": 4.11, "score": 1310.0, "early": 0, "accepted": 1}, {"gpa": 4.08, "score": 1300.0, "early": 1, "accepted": 1}, {"gpa": 4.06, "score": 1150.0, "early": 1, "accepted": 1}, {"gpa": 4.06, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 4.01, "score": 1260.0, "early": 0, "accepted": 1}, {"gpa": 4.01, "score": 1430.0, "early": 1, "accepted": 1}, {"gpa": 4.0, "score": 1120.0, "early": 1, "accepted": 1}, {"gpa": 3.96, "score": 1360.0, "early": 1, "accepted": 1}, {"gpa": 3.95, "score": 1350.0, "early": 1, "accepted": 1}, {"gpa": 3.94, "score": 1370.0, "early": 1, "accepted": 0}, {"gpa": 3.94, "score": 1590.0, "early": 0, "accepted": 1}, {"gpa": 3.92, "score": 1080.0, "early": 1, "accepted": 0}, {"gpa": 3.91, "score": 1340.0, "early": 1, "accepted": 0}, {"gpa": 3.89, "score": 1390.0, "early": 1, "accepted": 1}, {"gpa": 3.87, "score": 1370.0, "early": 1, "accepted": 0}, {"gpa": 3.87, "score": 1010.0, "early": 1, "accepted": 1}, {"gpa": 3.86, "score": 1160.0, "early": 1, "accepted": 0}, {"gpa": 3.84, "score": 1340.0, "early": 1, "accepted": 1}, {"gpa": 3.83, "score": 970.0, "early": 1, "accepted": 1}, {"gpa": 3.8, "score": 1250.0, "early": 1, "accepted": 0}, {"gpa": 3.8, "score": 1240.0, "early": 1, "accepted": 0}, {"gpa": 3.75, "score": 1020.0, "early": 1, "accepted": 1}, {"gpa": 3.73, "score": 1280.0, "early": 1, "accepted": 1}, {"gpa": 3.73, "score": 1260.0, "early": 0, "accepted": 0}, {"gpa": 3.7, "score": 1270.0, "early": 1, "accepted": 1}, {"gpa": 3.7, "score": 1290.0, "early": 1, "accepted": 1}, {"gpa": 3.68, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.68, "score": 1320.0, "early": 1, "accepted": 0}, {"gpa": 3.67, "score": 1230.0, "early": 1, "accepted": 1}, {"gpa": 3.67, "score": 1240.0, "early": 1, "accepted": 1}, {"gpa": 3.62, "score": 1470.0, "early": 1, "accepted": 1}, {"gpa": 3.62, "score": 1110.0, "early": 1, "accepted": 1}, {"gpa": 3.6, "score": 1110.0, "early": 1, "accepted": 1}, {"gpa": 3.57, "score": 1200.0, "early": 1, "accepted": 0}, {"gpa": 3.52, "score": 1400.0, "early": 1, "accepted": 1}, {"gpa": 3.48, "score": 1210.0, "early": 1, "accepted": 1}, {"gpa": 3.47, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.46, "score": 1280.0, "early": 1, "accepted": 1}, {"gpa": 3.45, "score": 1010.0, "early": 1, "accepted": 0}, {"gpa": 3.42, "score": 1340.0, "early": 1, "accepted": 1}, {"gpa": 3.4, "score": 1230.0, "early": 1, "accepted": 1}, {"gpa": 3.3, "score": 1090.0, "early": 1, "accepted": 1}, {"gpa": 3.28, "score": 1030.0, "early": 1, "accepted": 1}, {"gpa": 3.21, "score": 920.0, "early": 1, "accepted": 1}, {"gpa": 3.12, "score": 1030.0, "early": 1, "accepted": 0}, {"gpa": 2.98, "score": 1180.0, "early": 1, "accepted": 0}, {"gpa": 2.75, "score": 1400.0, "early": 0, "accepted": 0}, {"gpa": 2.5, "score": 1330.0, "early": 0, "accepted": 1}]}, "Northeastern": {"mean_gpa": 4.201333333333333, "std_gpa": 0.33230240578257764, "mean_score": 1414.6666666666667, "std_score": 108.9413705725342, "mean_early": 0.8333333333333334, "std_early": 0.37267799624996495, "intercept": 0.03814903930955792, "coef_gpa": 0.4063716240316262, "coef_score": -0.2224356567991618, "coef_early": 0.6047387545371505, "n": 60, "accept_rate": 0.5166666666666667, "points": [{"gpa": 4.72, "score": 1570.0, "early": 1, "accepted": 0}, {"gpa": 4.71, "score": 1540.0, "early": 1, "accepted": 0}, {"gpa": 4.59, "score": 1540.0, "early": 1, "accepted": 0}, {"gpa": 4.59, "score": 1490.0, "early": 0, "accepted": 0}, {"gpa": 4.54, "score": 1560.0, "early": 1, "accepted": 1}, {"gpa": 4.54, "score": 1550.0, "early": 1, "accepted": 1}, {"gpa": 4.53, "score": 1530.0, "early": 1, "accepted": 0}, {"gpa": 4.46, "score": 1550.0, "early": 1, "accepted": 1}, {"gpa": 4.45, "score": 1470.0, "early": 1, "accepted": 1}, {"gpa": 4.44, "score": 1530.0, "early": 1, "accepted": 0}, {"gpa": 4.43, "score": 1440.0, "early": 1, "accepted": 1}, {"gpa": 4.42, "score": 1520.0, "early": 1, "accepted": 1}, {"gpa": 4.41, "score": 1400.0, "early": 0, "accepted": 0}, {"gpa": 4.41, "score": 1200.0, "early": 0, "accepted": 1}, {"gpa": 4.39, "score": 1440.0, "early": 1, "accepted": 0}, {"gpa": 4.38, "score": 1520.0, "early": 0, "accepted": 0}, {"gpa": 4.37, "score": 1470.0, "early": 1, "accepted": 0}, {"gpa": 4.37, "score": 1500.0, "early": 0, "accepted": 1}, {"gpa": 4.36, "score": 1500.0, "early": 1, "accepted": 0}, {"gpa": 4.35, "score": 1520.0, "early": 0, "accepted": 0}, {"gpa": 4.35, "score": 1360.0, "early": 1, "accepted": 1}, {"gpa": 4.35, "score": 1330.0, "early": 1, "accepted": 1}, {"gpa": 4.31, "score": 1540.0, "early": 0, "accepted": 0}, {"gpa": 4.31, "score": 1280.0, "early": 1, "accepted": 1}, {"gpa": 4.3, "score": 1440.0, "early": 0, "accepted": 0}, {"gpa": 4.29, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 4.26, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.25, "score": 1370.0, "early": 1, "accepted": 1}, {"gpa": 4.25, "score": 1350.0, "early": 1, "accepted": 1}, {"gpa": 4.24, "score": 1460.0, "early": 1, "accepted": 0}, {"gpa": 4.24, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 4.24, "score": 1310.0, "early": 1, "accepted": 1}, {"gpa": 4.23, "score": 1420.0, "early": 1, "accepted": 1}, {"gpa": 4.22, "score": 1530.0, "early": 1, "accepted": 1}, {"gpa": 4.22, "score": 1390.0, "early": 1, "accepted": 1}, {"gpa": 4.19, "score": 1540.0, "early": 1, "accepted": 1}, {"gpa": 4.18, "score": 1460.0, "early": 1, "accepted": 0}, {"gpa": 4.17, "score": 1540.0, "early": 1, "accepted": 0}, {"gpa": 4.17, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.17, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 4.16, "score": 1320.0, "early": 1, "accepted": 0}, {"gpa": 4.13, "score": 1260.0, "early": 1, "accepted": 0}, {"gpa": 4.12, "score": 1410.0, "early": 1, "accepted": 0}, {"gpa": 4.12, "score": 1560.0, "early": 1, "accepted": 1}, {"gpa": 4.12, "score": 1290.0, "early": 1, "accepted": 1}, {"gpa": 4.08, "score": 1460.0, "early": 1, "accepted": 1}, {"gpa": 4.07, "score": 1320.0, "early": 1, "accepted": 0}, {"gpa": 4.06, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 4.05, "score": 1410.0, "early": 1, "accepted": 1}, {"gpa": 3.99, "score": 1310.0, "early": 1, "accepted": 0}, {"gpa": 3.97, "score": 1280.0, "early": 1, "accepted": 0}, {"gpa": 3.97, "score": 1230.0, "early": 1, "accepted": 1}, {"gpa": 3.95, "score": 1350.0, "early": 1, "accepted": 0}, {"gpa": 3.94, "score": 1220.0, "early": 1, "accepted": 0}, {"gpa": 3.94, "score": 1280.0, "early": 1, "accepted": 1}, {"gpa": 3.82, "score": 1250.0, "early": 1, "accepted": 1}, {"gpa": 3.7, "score": 1290.0, "early": 1, "accepted": 0}, {"gpa": 3.68, "score": 1230.0, "early": 0, "accepted": 0}, {"gpa": 3.31, "score": 1220.0, "early": 0, "accepted": 0}, {"gpa": 2.5, "score": 1330.0, "early": 1, "accepted": 0}]}, "Georgetown": {"mean_gpa": 4.339, "std_gpa": 0.17688696955965977, "mean_score": 1441.3333333333333, "std_score": 107.84968964051569, "mean_early": 0.4666666666666667, "std_early": 0.49888765156985887, "intercept": -1.8206404158052671, "coef_gpa": 1.926148492594321, "coef_score": 0.3316783592536178, "coef_early": 0.7020436783484575, "n": 30, "accept_rate": 0.26666666666666666, "points": [{"gpa": 4.66, "score": 1520.0, "early": 0, "accepted": 1}, {"gpa": 4.63, "score": 1560.0, "early": 0, "accepted": 1}, {"gpa": 4.62, "score": 1530.0, "early": 0, "accepted": 1}, {"gpa": 4.59, "score": 1490.0, "early": 1, "accepted": 1}, {"gpa": 4.54, "score": 1510.0, "early": 1, "accepted": 1}, {"gpa": 4.54, "score": 1550.0, "early": 1, "accepted": 1}, {"gpa": 4.49, "score": 1530.0, "early": 0, "accepted": 0}, {"gpa": 4.44, "score": 1530.0, "early": 1, "accepted": 0}, {"gpa": 4.43, "score": 1440.0, "early": 1, "accepted": 1}, {"gpa": 4.42, "score": 1520.0, "early": 0, "accepted": 0}, {"gpa": 4.41, "score": 1200.0, "early": 1, "accepted": 0}, {"gpa": 4.4, "score": 1420.0, "early": 0, "accepted": 0}, {"gpa": 4.39, "score": 1380.0, "early": 1, "accepted": 1}, {"gpa": 4.37, "score": 1500.0, "early": 0, "accepted": 0}, {"gpa": 4.35, "score": 1360.0, "early": 0, "accepted": 0}, {"gpa": 4.35, "score": 1330.0, "early": 0, "accepted": 0}, {"gpa": 4.31, "score": 1540.0, "early": 0, "accepted": 0}, {"gpa": 4.29, "score": 1380.0, "early": 1, "accepted": 0}, {"gpa": 4.26, "score": 1540.0, "early": 0, "accepted": 0}, {"gpa": 4.25, "score": 1370.0, "early": 1, "accepted": 0}, {"gpa": 4.24, "score": 1460.0, "early": 1, "accepted": 0}, {"gpa": 4.22, "score": 1220.0, "early": 0, "accepted": 0}, {"gpa": 4.21, "score": 1290.0, "early": 0, "accepted": 0}, {"gpa": 4.19, "score": 1540.0, "early": 0, "accepted": 0}, {"gpa": 4.17, "score": 1510.0, "early": 1, "accepted": 0}, {"gpa": 4.17, "score": 1450.0, "early": 1, "accepted": 0}, {"gpa": 4.15, "score": 1600.0, "early": 1, "accepted": 0}, {"gpa": 4.05, "score": 1410.0, "early": 1, "accepted": 0}, {"gpa": 4.04, "score": 1250.0, "early": 0, "accepted": 0}, {"gpa": 3.99, "score": 1310.0, "early": 0, "accepted": 0}]}, "U Miami": {"mean_gpa": 3.79952380952381, "std_gpa": 0.288996229839903, "mean_score": 1252.857142857143, "std_score": 126.45883415046131, "mean_early": 0.9761904761904762, "std_early": 0.15245533898649638, "intercept": 0.02751836623304011, "coef_gpa": 0.33624900282973913, "coef_score": 0.633253103404412, "coef_early": -0.2881553168656879, "n": 42, "accept_rate": 0.5, "points": [{"gpa": 4.43, "score": 1440.0, "early": 1, "accepted": 1}, {"gpa": 4.29, "score": 1380.0, "early": 0, "accepted": 1}, {"gpa": 4.22, "score": 1220.0, "early": 1, "accepted": 0}, {"gpa": 4.12, "score": 1560.0, "early": 1, "accepted": 0}, {"gpa": 4.12, "score": 1410.0, "early": 1, "accepted": 1}, {"gpa": 4.11, "score": 1310.0, "early": 1, "accepted": 0}, {"gpa": 4.07, "score": 1210.0, "early": 1, "accepted": 0}, {"gpa": 4.06, "score": 1500.0, "early": 1, "accepted": 1}, {"gpa": 4.05, "score": 1410.0, "early": 1, "accepted": 1}, {"gpa": 4.02, "score": 1340.0, "early": 1, "accepted": 1}, {"gpa": 4.02, "score": 1270.0, "early": 1, "accepted": 0}, {"gpa": 4.01, "score": 1260.0, "early": 1, "accepted": 0}, {"gpa": 4.0, "score": 1180.0, "early": 1, "accepted": 1}, {"gpa": 4.0, "score": 1250.0, "early": 1, "accepted": 1}, {"gpa": 3.97, "score": 1280.0, "early": 1, "accepted": 1}, {"gpa": 3.94, "score": 1370.0, "early": 1, "accepted": 1}, {"gpa": 3.92, "score": 1080.0, "early": 1, "accepted": 1}, {"gpa": 3.91, "score": 1340.0, "early": 1, "accepted": 1}, {"gpa": 3.87, "score": 1010.0, "early": 1, "accepted": 0}, {"gpa": 3.87, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.79, "score": 1240.0, "early": 1, "accepted": 1}, {"gpa": 3.79, "score": 1110.0, "early": 1, "accepted": 1}, {"gpa": 3.75, "score": 1360.0, "early": 1, "accepted": 1}, {"gpa": 3.74, "score": 1220.0, "early": 1, "accepted": 0}, {"gpa": 3.73, "score": 1280.0, "early": 1, "accepted": 1}, {"gpa": 3.69, "score": 1400.0, "early": 1, "accepted": 1}, {"gpa": 3.67, "score": 1320.0, "early": 1, "accepted": 1}, {"gpa": 3.66, "score": 1250.0, "early": 1, "accepted": 0}, {"gpa": 3.65, "score": 1190.0, "early": 1, "accepted": 0}, {"gpa": 3.65, "score": 1250.0, "early": 1, "accepted": 0}, {"gpa": 3.63, "score": 1310.0, "early": 1, "accepted": 0}, {"gpa": 3.61, "score": 1230.0, "early": 1, "accepted": 1}, {"gpa": 3.61, "score": 1130.0, "early": 1, "accepted": 0}, {"gpa": 3.57, "score": 1030.0, "early": 1, "accepted": 0}, {"gpa": 3.53, "score": 1100.0, "early": 1, "accepted": 1}, {"gpa": 3.48, "score": 1330.0, "early": 1, "accepted": 1}, {"gpa": 3.47, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.45, "score": 1010.0, "early": 1, "accepted": 0}, {"gpa": 3.43, "score": 1060.0, "early": 1, "accepted": 0}, {"gpa": 3.4, "score": 1230.0, "early": 1, "accepted": 0}, {"gpa": 3.3, "score": 1110.0, "early": 1, "accepted": 0}, {"gpa": 2.98, "score": 1180.0, "early": 1, "accepted": 0}]}, "William & Mary": {"mean_gpa": 4.068035714285714, "std_gpa": 0.3979923709016523, "mean_score": 1350.892857142857, "std_score": 165.85575473148654, "mean_early": 0.21428571428571427, "std_early": 0.41032590332414487, "intercept": -0.19108772938348015, "coef_gpa": 2.3431496993252163, "coef_score": 0.8920783889189619, "coef_early": 0.693126821697026, "n": 56, "accept_rate": 0.5357142857142857, "points": [{"gpa": 4.62, "score": 1530.0, "early": 0, "accepted": 1}, {"gpa": 4.54, "score": 1510.0, "early": 0, "accepted": 1}, {"gpa": 4.5, "score": 1580.0, "early": 0, "accepted": 1}, {"gpa": 4.49, "score": 1530.0, "early": 0, "accepted": 1}, {"gpa": 4.48, "score": 1430.0, "early": 0, "accepted": 1}, {"gpa": 4.44, "score": 1530.0, "early": 0, "accepted": 1}, {"gpa": 4.43, "score": 1500.0, "early": 0, "accepted": 1}, {"gpa": 4.43, "score": 1510.0, "early": 0, "accepted": 1}, {"gpa": 4.42, "score": 1510.0, "early": 0, "accepted": 1}, {"gpa": 4.41, "score": 1200.0, "early": 0, "accepted": 1}, {"gpa": 4.41, "score": 1400.0, "early": 0, "accepted": 1}, {"gpa": 4.4, "score": 1510.0, "early": 0, "accepted": 1}, {"gpa": 4.4, "score": 1500.0, "early": 0, "accepted": 1}, {"gpa": 4.39, "score": 1420.0, "early": 0, "accepted": 1}, {"gpa": 4.37, "score": 1500.0, "early": 0, "accepted": 1}, {"gpa": 4.36, "score": 1500.0, "early": 0, "accepted": 1}, {"gpa": 4.31, "score": 1440.0, "early": 0, "accepted": 1}, {"gpa": 4.29, "score": 1210.0, "early": 0, "accepted": 0}, {"gpa": 4.26, "score": 1430.0, "early": 0, "accepted": 0}, {"gpa": 4.26, "score": 1540.0, "early": 0, "accepted": 1}, {"gpa": 4.25, "score": 1370.0, "early": 0, "accepted": 1}, {"gpa": 4.24, "score": 1420.0, "early": 0, "accepted": 1}, {"gpa": 4.22, "score": 1390.0, "early": 0, "accepted": 0}, {"gpa": 4.21, "score": 1490.0, "early": 0, "accepted": 1}, {"gpa": 4.19, "score": 1310.0, "early": 0, "accepted": 0}, {"gpa": 4.19, "score": 1330.0, "early": 0, "accepted": 0}, {"gpa": 4.18, "score": 1210.0, "early": 1, "accepted": 1}, {"gpa": 4.17, "score": 1510.0, "early": 0, "accepted": 1}, {"gpa": 4.15, "score": 1460.0, "early": 1, "accepted": 1}, {"gpa": 4.15, "score": 1240.0, "early": 1, "accepted": 1}, {"gpa": 4.13, "score": 1260.0, "early": 0, "accepted": 0}, {"gpa": 4.11, "score": 1400.0, "early": 1, "accepted": 1}, {"gpa": 4.11, "score": 1310.0, "early": 0, "accepted": 1}, {"gpa": 4.04, "score": 1250.0, "early": 0, "accepted": 1}, {"gpa": 4.01, "score": 1430.0, "early": 0, "accepted": 0}, {"gpa": 4.0, "score": 1180.0, "early": 1, "accepted": 1}, {"gpa": 3.99, "score": 1480.0, "early": 0, "accepted": 0}, {"gpa": 3.99, "score": 1310.0, "early": 0, "accepted": 0}, {"gpa": 3.94, "score": 1120.0, "early": 1, "accepted": 0}, {"gpa": 3.92, "score": 1180.0, "early": 0, "accepted": 0}, {"gpa": 3.9, "score": 1370.0, "early": 0, "accepted": 0}, {"gpa": 3.9, "score": 1490.0, "early": 1, "accepted": 1}, {"gpa": 3.89, "score": 1390.0, "early": 0, "accepted": 0}, {"gpa": 3.87, "score": 1010.0, "early": 0, "accepted": 0}, {"gpa": 3.86, "score": 1160.0, "early": 0, "accepted": 0}, {"gpa": 3.83, "score": 1420.0, "early": 1, "accepted": 0}, {"gpa": 3.8, "score": 1240.0, "early": 1, "accepted": 0}, {"gpa": 3.78, "score": 1140.0, "early": 0, "accepted": 0}, {"gpa": 3.75, "score": 1020.0, "early": 0, "accepted": 0}, {"gpa": 3.65, "score": 1220.0, "early": 1, "accepted": 0}, {"gpa": 3.62, "score": 1470.0, "early": 0, "accepted": 0}, {"gpa": 3.44, "score": 1400.0, "early": 1, "accepted": 0}, {"gpa": 3.35, "score": 1360.0, "early": 1, "accepted": 0}, {"gpa": 3.35, "score": 1280.0, "early": 0, "accepted": 0}, {"gpa": 2.99, "score": 910.0, "early": 0, "accepted": 0}, {"gpa": 2.43, "score": 840.0, "early": 0, "accepted": 0}]}};
+    const ACT_TO_SAT = {36:1590,35:1540,34:1500,33:1460,32:1430,31:1400,30:1370,29:1340,28:1310,27:1280,26:1240,25:1210,24:1180,23:1140,22:1110,21:1080,20:1040,19:1010,18:970,17:930,16:890,15:850,14:800,13:760,12:710,11:670,10:630,9:590};
+    const SCHOOL_ORDER = ["JMU","Georgetown","William & Mary","UVA","Virginia Tech","U Miami","Penn State","Northeastern"];
+
+    const $ = (id) => document.getElementById(id);
+    const state = { gpa: 4.0, score: 1350, testType: "SAT", decision: "early" };
+
+    function predict(school, gpa, score, early) {
+      const m = MODELS[school];
+      const z_gpa   = (gpa - m.mean_gpa) / m.std_gpa;
+      const z_score = (score - m.mean_score) / m.std_score;
+      const z_early = (early - m.mean_early) / m.std_early;
+      const logit = m.intercept + m.coef_gpa * z_gpa + m.coef_score * z_score + m.coef_early * z_early;
+      return 1 / (1 + Math.exp(-logit));
+    }
+
+    function buildRows() {
+      const container = $("sim-results");
+      container.innerHTML = "";
+      SCHOOL_ORDER.forEach(school => {
+        const row = document.createElement("div");
+        row.className = "sim-row";
+        row.innerHTML = `
+          <div class="sim-school">${school}</div>
+          <div class="sim-bar-wrap"><div class="sim-bar" id="bar-${school}" style="width:0%"></div></div>
+          <div class="sim-pct" id="pct-${school}">0%</div>`;
+        container.appendChild(row);
+      });
+    }
+
+    function update() {
+      let satEq;
+      if (state.testType === "SAT") satEq = state.score;
+      else if (state.testType === "ACT") satEq = ACT_TO_SAT[state.score] || 1200;
+      else satEq = null;
+
+      const early = state.decision === "early" ? 1 : 0;
+
+      SCHOOL_ORDER.forEach(school => {
+        const m = MODELS[school];
+        const useScore = satEq !== null ? satEq : m.mean_score;
+        const p = predict(school, state.gpa, useScore, early);
+        const pct = Math.round(p * 100);
+        const bar = $(`bar-${school}`);
+        bar.style.width = pct + "%";
+        bar.className = "sim-bar" + (pct < 30 ? " low" : "");
+        $(`pct-${school}`).textContent = pct + "%";
+      });
+      if (typeof renderScatter === "function") renderScatter();
+    }
+
+    function setupScoreControl() {
+      const label = $("sim-score-label");
+      const slider = $("sim-score");
+      const val = $("sim-score-val");
+      const wrap = $("sim-score-control");
+      if (state.testType === "SAT") {
+        label.textContent = "SAT score";
+        slider.min = 800; slider.max = 1600; slider.step = 10;
+        if (state.score < 800 || state.score > 1600) state.score = 1350;
+        slider.value = state.score; val.textContent = state.score;
+        wrap.style.opacity = 1;
+        slider.disabled = false;
+      } else if (state.testType === "ACT") {
+        label.textContent = "ACT score";
+        slider.min = 12; slider.max = 36; slider.step = 1;
+        if (state.score < 12 || state.score > 36) state.score = 28;
+        slider.value = state.score; val.textContent = state.score;
+        wrap.style.opacity = 1;
+        slider.disabled = false;
+      } else {
+        label.textContent = "Score (not submitted)";
+        wrap.style.opacity = 0.5;
+        slider.disabled = true;
+        val.textContent = "—";
+      }
+    }
+
+    
+    // ===== Scatter rendering =====
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const PLOT = { x: 60, y: 24, w: 510, h: 300 };
+    let currentSchool = "UVA";
+
+    function makeEl(name, attrs) {
+      const el = document.createElementNS(SVG_NS, name);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      return el;
+    }
+
+    function getScales(school) {
+      const pts = MODELS[school].points;
+      let gMin = Infinity, gMax = -Infinity, sMin = Infinity, sMax = -Infinity;
+      pts.forEach(p => {
+        gMin = Math.min(gMin, p.gpa); gMax = Math.max(gMax, p.gpa);
+        sMin = Math.min(sMin, p.score); sMax = Math.max(sMax, p.score);
+      });
+      // include user point in range so they don't fall off
+      const u = currentUserPoint();
+      if (u) {
+        gMin = Math.min(gMin, u.gpa); gMax = Math.max(gMax, u.gpa);
+        sMin = Math.min(sMin, u.score); sMax = Math.max(sMax, u.score);
+      }
+      // pad
+      gMin -= 0.1; gMax += 0.1;
+      sMin = Math.max(0, sMin - 30); sMax = sMax + 30;
+      return {
+        xScale: (g) => PLOT.x + ((g - gMin) / (gMax - gMin)) * PLOT.w,
+        yScale: (s) => PLOT.y + (1 - (s - sMin) / (sMax - sMin)) * PLOT.h,
+        gMin, gMax, sMin, sMax
+      };
+    }
+
+    function currentUserPoint() {
+      let satEq;
+      if (state.testType === "SAT") satEq = state.score;
+      else if (state.testType === "ACT") satEq = ACT_TO_SAT[state.score] || null;
+      else satEq = null;
+      if (satEq === null) return null; // no test mode -> can't plot meaningfully
+      return { gpa: state.gpa, score: satEq, early: state.decision === "early" ? 1 : 0 };
+    }
+
+    function renderScatter() {
+      const svg = $("sim-scatter-svg");
+      svg.innerHTML = "";
+      const school = currentSchool;
+      const m = MODELS[school];
+      const sc = getScales(school);
+
+      // axes
+      const axisColor = "#CCC";
+      svg.appendChild(makeEl("line", {x1: PLOT.x, y1: PLOT.y+PLOT.h, x2: PLOT.x+PLOT.w, y2: PLOT.y+PLOT.h, stroke: axisColor, "stroke-width": 1}));
+      svg.appendChild(makeEl("line", {x1: PLOT.x, y1: PLOT.y, x2: PLOT.x, y2: PLOT.y+PLOT.h, stroke: axisColor, "stroke-width": 1}));
+
+      // axis ticks: GPA every 0.5, SAT every 100
+      const gTickStart = Math.ceil(sc.gMin * 2) / 2;
+      for (let g = gTickStart; g <= sc.gMax; g += 0.5) {
+        const x = sc.xScale(g);
+        svg.appendChild(makeEl("line", {x1:x, y1:PLOT.y+PLOT.h, x2:x, y2:PLOT.y+PLOT.h+4, stroke:axisColor}));
+        const t = makeEl("text", {x:x, y:PLOT.y+PLOT.h+18, "text-anchor":"middle", "font-size":11, fill:"#666", "font-family":"Inter, sans-serif"});
+        t.textContent = g.toFixed(1);
+        svg.appendChild(t);
+      }
+      const sTickStart = Math.ceil(sc.sMin / 100) * 100;
+      for (let s = sTickStart; s <= sc.sMax; s += 100) {
+        const y = sc.yScale(s);
+        svg.appendChild(makeEl("line", {x1:PLOT.x-4, y1:y, x2:PLOT.x, y2:y, stroke:axisColor}));
+        const t = makeEl("text", {x:PLOT.x-8, y:y+4, "text-anchor":"end", "font-size":11, fill:"#666", "font-family":"Inter, sans-serif"});
+        t.textContent = s;
+        svg.appendChild(t);
+      }
+      // axis labels
+      const xlab = makeEl("text", {x: PLOT.x + PLOT.w/2, y: PLOT.y + PLOT.h + 40, "text-anchor":"middle", "font-size":12, fill:"#444", "font-weight":"600", "font-family":"Inter, sans-serif"});
+      xlab.textContent = "Weighted GPA";
+      svg.appendChild(xlab);
+      const ylab = makeEl("text", {x: -(PLOT.y + PLOT.h/2), y: 18, "text-anchor":"middle", "font-size":12, fill:"#444", "font-weight":"600", transform:"rotate(-90)", "font-family":"Inter, sans-serif"});
+      ylab.textContent = "SAT-equivalent score";
+      svg.appendChild(ylab);
+
+      // ===== decision boundary =====
+      // logit = intercept + coef_gpa*z_gpa + coef_score*z_score + coef_early*z_early = 0
+      // with early fixed:
+      //   coef_gpa/std_gpa * gpa + coef_score/std_score * score = K
+      //   K = -intercept + coef_gpa*mean_gpa/std_gpa + coef_score*mean_score/std_score - coef_early*(early-mean_early)/std_early
+      const earlyVal = state.decision === "early" ? 1 : 0;
+      const a = m.coef_gpa / m.std_gpa;
+      const b = m.coef_score / m.std_score;
+      const K = -m.intercept + (m.coef_gpa * m.mean_gpa) / m.std_gpa + (m.coef_score * m.mean_score) / m.std_score - (m.coef_early * (earlyVal - m.mean_early)) / m.std_early;
+      // score = (K - a*gpa) / b
+      // sample the line across the visible gpa range and clip to plot box
+      const pts = [];
+      const steps = 40;
+      for (let i = 0; i <= steps; i++) {
+        const g = sc.gMin + (i / steps) * (sc.gMax - sc.gMin);
+        const s = Math.abs(b) < 1e-9 ? null : (K - a * g) / b;
+        if (s === null) continue;
+        if (s < sc.sMin || s > sc.sMax) continue;
+        pts.push([sc.xScale(g), sc.yScale(s)]);
+      }
+      if (pts.length >= 2) {
+        const d = pts.map((p, i) => (i === 0 ? "M" : "L") + p[0] + "," + p[1]).join(" ");
+        svg.appendChild(makeEl("path", {d: d, stroke: "#1E1E2D", "stroke-width": 1.8, "stroke-dasharray": "6 4", fill: "none", opacity: 0.85}));
+      }
+
+      // ===== data points =====
+      m.points.forEach(p => {
+        const x = sc.xScale(p.gpa);
+        const y = sc.yScale(p.score);
+        if (p.accepted === 1) {
+          svg.appendChild(makeEl("circle", {cx:x, cy:y, r:4.5, fill:"#1976D2", stroke:"white", "stroke-width":0.8, opacity:0.85}));
+        } else {
+          // red X
+          const sz = 5;
+          svg.appendChild(makeEl("line", {x1:x-sz, y1:y-sz, x2:x+sz, y2:y+sz, stroke:"#E53935", "stroke-width":1.8, opacity:0.85}));
+          svg.appendChild(makeEl("line", {x1:x-sz, y1:y+sz, x2:x+sz, y2:y-sz, stroke:"#E53935", "stroke-width":1.8, opacity:0.85}));
+        }
+      });
+
+      // ===== user marker =====
+      const u = currentUserPoint();
+      const statEl = $("sim-scatter-stat");
+      if (u) {
+        const x = sc.xScale(u.gpa);
+        const y = sc.yScale(u.score);
+        // star path centered at (x, y), size 11
+        const r1 = 11, r2 = 4.5;
+        let star = "";
+        for (let i = 0; i < 10; i++) {
+          const ang = (Math.PI/2) + (i * Math.PI / 5);
+          const r = (i % 2 === 0) ? r1 : r2;
+          const px = x + r * Math.cos(ang);
+          const py = y - r * Math.sin(ang);
+          star += (i === 0 ? "M" : "L") + px.toFixed(2) + "," + py.toFixed(2) + " ";
+        }
+        star += "Z";
+        // halo
+        svg.appendChild(makeEl("circle", {cx:x, cy:y, r:18, fill:"#FFB300", opacity:0.18}));
+        svg.appendChild(makeEl("path", {d:star, fill:"#FFB300", stroke:"#1E1E2D", "stroke-width":1.2}));
+        // probability
+        const p = predict(school, u.gpa, u.score, u.early);
+        statEl.innerHTML = `Your profile at ${school}: <strong>${Math.round(p*100)}%</strong> predicted probability of admission.`;
+      } else {
+        statEl.innerHTML = `<em>Switch to SAT or ACT mode to see your position on the plot.</em>`;
+      }
+    }
+
+    function attachScatterListeners() {
+      $("sim-school-select").addEventListener("change", e => {
+        currentSchool = e.target.value;
+        renderScatter();
+      });
+    }
+
+    function init() {
+      buildRows();
+      $("sim-gpa").addEventListener("input", e => {
+        state.gpa = parseFloat(e.target.value);
+        $("sim-gpa-val").textContent = state.gpa.toFixed(2);
+        update();
+      });
+      $("sim-score").addEventListener("input", e => {
+        state.score = parseInt(e.target.value);
+        $("sim-score-val").textContent = state.score;
+        update();
+      });
+      $("sim-test-toggle").querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          $("sim-test-toggle").querySelectorAll("button").forEach(b => b.classList.remove("on"));
+          btn.classList.add("on");
+          state.testType = btn.dataset.test;
+          if (state.testType === "ACT" && state.score > 36) state.score = 28;
+          if (state.testType === "SAT" && state.score <= 36) state.score = 1350;
+          setupScoreControl();
+          update();
+        });
+      });
+      $("sim-decision-toggle").querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          $("sim-decision-toggle").querySelectorAll("button").forEach(b => b.classList.remove("on"));
+          btn.classList.add("on");
+          state.decision = btn.dataset.decision;
+          update();
+        });
+      });
+      setupScoreControl();
+      attachScatterListeners();
+      update();
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
 
